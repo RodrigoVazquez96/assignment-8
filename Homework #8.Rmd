@@ -1,0 +1,122 @@
+---
+title: "Homework #8"
+author: "Rodrigo Vazquez"
+date: "11/29/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(leaflet)
+library(ggmap)
+```
+
+```{r}
+load(file="providerspokane.rda")
+```
+## Intro: These graphs allow us to more easy maneuver the graph to yield more beneficial information.In analysis of this graph we see a strong majority of Internal Medicine, Nephrology, and Gastroenterology in the downtown Spokane area.This are being filled with hospitals and medical facilities serving it fit to be a central hub of medical providers. As we examine the data further, we see that the next majority concentration of providers is in the Spokane Valley and Country Homes area.These two locations are either north of east of downtown where large populations of people also live benefiting the medical facility.With more people in these areas, they can drive a lot of traffic to these locations, obviously requiring medical resources.
+
+## Original dataset of providerspokane was manipulated in R by removing extraneous uneeded columns. Futher cleaning of data was done by pasting columns related to the address under one single column. Final cleaning was extracting the impotant data into three separate subsets then combining those three subsets containing the relevant inofrmation into one final dataset
+
+```{r}
+providerspo <- providerspokane[-c(1:8),-c(1,4:5,7,15:26)]
+```
+
+```{r}
+ProviderSpoIM <- subset(providerspo, Provider.Type == "Internal Medicine")
+```
+
+```{r}
+ProviderSpoGas <- subset(providerspo, Provider.Type == "Gastroenterology")
+```
+
+```{r}
+ProviderSpoNeph <- subset(providerspo, Provider.Type == "Nephrology")
+```
+
+```{r}
+finalproviderspokane <- rbind(ProviderSpoGas,ProviderSpoIM,ProviderSpoNeph)
+```
+
+```{r}
+finalproviderspokane$address <- paste(finalproviderspokane$Street.Address.1.of.the.Provider,finalproviderspokane$Street.Address.2.of.the.Provider,finalproviderspokane$City.of.the.Provider,finalproviderspokane$State.Code.of.the.Provider,finalproviderspokane$Zip.Code.of.the.Provider, sep=", ")
+
+```
+
+```{r}
+finalproviderspokane$address= gsub (", , ",", ",finalproviderspokane$address)
+
+finalproviderspokane$address
+```
+
+
+```{r}
+CleanProviderSpokane <- finalproviderspokane[,-c(4:8)]
+```
+
+```{r}
+suppressMessages(library(ggmap))
+library(gudatavizfa17)
+CleanProviderSpokane=whatislatlon(CleanProviderSpokane,"address")
+
+```
+
+```{r}
+CleanProviderSpokane$Coordinates <- paste(CleanProviderSpokane$latitude,CleanProviderSpokane$longitude, sep = ",")
+CleanProviderSpokane$Coordinates
+```
+
+# Question 1 Static Map
+```{r}
+location=c(-117.402209,47.665330)
+map=get_map(location=location,maptype="roadmap",source="google",zoom=10)
+spokanemap=ggmap(map)
+print(spokanemap)
+```
+
+```{r}
+spokanemap=spokanemap+geom_point(data=CleanProviderSpokane,
+            aes(longitude,latitude,color=Provider.Type),size=4)
+print(spokanemap)  
+```
+### Analysis: Looking at the map, we see a high level of Internal Medicine and Nephrology providers in the Spokane area.With the current zoom of the map, Gastroenterology does not appear however in our data set table, we do see their presence in the Spokane area.Nephrology is concentrated mainly in two sections, the first being near County Homes. Outside of County Homes, the rest of Nephrology providers reside in the downtown Spokane area.The providers seem slightly polarized but offers two strong beacons of service to the Spokane community where they can receive the treatment they need.Internal Medicine providers are more spread out in Spokane.The branch out far east into Spokane Valley and creep toward Northern Spokane and down south past Glenrose. We again see a presence in Downtown and Country Homes area.From this map, it is clear that Nephrology providers are concentrated in the polar end of Spokane where there are more hospitals where as the Internal Medicine providers span the area as they tend to work in private practice and small clinics. We had issues in that 33 rows of data could not be displayed due to missing information however, the map serves well in comparison of Nephrology and Internal Medicine Providers
+
+# Question 2 Interactive Map
+## Map before "addMarkerCluster"
+```{r}
+leaflet() %>% addTiles()%>%addMarkers(data=CleanProviderSpokane,popup=~Provider.Type)
+```
+
+### Cleaned up data my combining columns using paste, as well as got rid of columns 1 &2
+```{r}
+CleanProviderSpokane$Name <- paste(CleanProviderSpokane$First.Name.of.the.Provider,CleanProviderSpokane$Last.Name.Organization.Name.of.the.Provider)
+CleanProviderSpokane$Name
+```
+
+```{r}
+CleanProviderSpokane <- CleanProviderSpokane[,-c(1:2)]
+```
+
+```{r}
+CleanProviderSpokane$Info <- paste(CleanProviderSpokane$Name,CleanProviderSpokane$address,CleanProviderSpokane$Gender.of.the.Provider, sep = ",")
+CleanProviderSpokane$Info
+```
+
+##Interactive Map Using "addMarkerCluster"
+```{r}
+leaflet(CleanProviderSpokane) %>%addTiles()%>%addMarkers(clusterOptions = markerClusterOptions(),popup=~Info)
+```
+
+### Removed the duplication of the same person with multiple services
+```{r}
+PrettyCluster <- unique(CleanProviderSpokane)
+```
+
+```{r}
+leaflet(PrettyCluster) %>%addTiles()%>%addMarkers(clusterOptions = markerClusterOptions(),popup=~Info)
+```
+### Analysis: Limitations of the first graph lie mostly in the outlier data sets. We could not figure out how to draw back in data points that are being placed in Indiana or Ohio despite them having a Spokane address. These points are inaccurate and cause a limitation to the usability of the data set. Additionally, there were 2 points of data that could not be displayed in the graph.These 2 points require information that we could not obtain and thus, are not shown in the graph.That puts a limitation of the graph that less data is available however, there are still plenty of data points to draw inferences from the visualization.Limitations to the second graph are very similar. The second graph only has one row of missing data which is a big improvement from the first graph however, it still serves as a slight fluke in our graph.We also note the presence of a data set in Indiana and one in Ohio.We do not know exactly why they are populating over there but, the two outlier data sets don’t have a real tug on the interpretation of the relevant data showing in Spokane and the trends we see.
